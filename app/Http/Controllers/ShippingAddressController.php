@@ -109,32 +109,48 @@ class ShippingAddressController extends BaseController
         }
     }
 
-    public function destroy(ShippingAddressDestroyRequest  $request) {
-        
-         //remove data
-         $destroyAdmin =   $this->shippingAddressInterface->destroy($request->by_id);
-
-         if($destroyAdmin['queryStatus']) {
- 
-             //response
-             $data  = array(
-                 'field' =>'destroy-shipping address',
-                 'message'=> 'shipping address successfuly destroyed'
-             );
- 
-              return $this->handleResponse($data,'Destroy shipping address success',$request->all(),str_replace('/','.',$request->path()),204);
-        
-         } else {
-             
-             $data  = array([
-                 'field' =>'destroy-shipping address',
-                 'message'=> 'shipping address destroy fail'
-             ]);
- 
-              return   $this->handleError($data,$destroyAdmin['queryMessage'],$request->all(),str_replace('/','.',$request->path()),422);
-         }
-
-
+    public function destroy(ShippingAddressDestroyRequest $request) {
+        // Log operasi yang dimulai
+        Log::info('Destroying shipping address', ['id' => $request->by_id]);
+    
+        // Validasi input ID shipping address
+        if (empty($request->by_id)) {
+            Log::error('Failed to destroy shipping address: ID missing');
+            return $this->handleError(
+                ['field' => 'by_id', 'message' => 'Shipping address ID is required'],
+                'Missing shipping address ID',
+                $request->all(),
+                str_replace('/', '.', $request->path()),
+                422
+            );
+        }
+    
+        // Remove data dari storage
+        $destroyAdmin = $this->shippingAddressInterface->destroy($request->by_id);
+    
+        if ($destroyAdmin['queryStatus']) {
+            // Log operasi yang berhasil
+            Log::info('Shipping address destroyed successfully', ['id' => $request->by_id]);
+    
+            // Response jika sukses
+            $data = array(
+                'field' => 'destroy-shipping address',
+                'message' => 'Shipping address successfully destroyed'
+            );
+    
+            return $this->handleResponse($data, 'Destroy shipping address success', $request->all(), str_replace('/', '.', $request->path()), 204);
+        } else {
+            // Log error jika gagal
+            Log::error('Failed to destroy shipping address', ['id' => $request->by_id, 'error' => $destroyAdmin['queryMessage']]);
+    
+            // Response jika gagal
+            $data = array([
+                'field' => 'destroy-shipping address',
+                'message' => 'Shipping address destruction failed'
+            ]);
+    
+            return $this->handleError($data, $destroyAdmin['queryMessage'], $request->all(), str_replace('/', '.', $request->path()), 422);
+        }
     }
 
     public function update(ShippingAddressUpdateRequest  $request,CityServices $cityService) {
