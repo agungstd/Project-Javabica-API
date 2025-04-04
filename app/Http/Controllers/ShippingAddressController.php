@@ -39,38 +39,74 @@ class ShippingAddressController extends BaseController
 
         return   $this->handleError( $data,$get['queryMessage'],$request->all(),str_replace('/','.',$request->path()),422);
     }
-    public function create(ShippingAddressCreateRequest  $request,CityServices $cityService) {
-        
-        //calling raja ongkir to find label
+    public function create(ShippingAddressCreateRequest $request, CityServices $cityService) {
+        // Validate the city input
+        if (empty($request->city)) {
+            return $this->handleError(
+                ['field' => 'city', 'message' => 'City is required'],
+                'City data missing',
+                $request->all(),
+                str_replace('/', '.', $request->path()),
+                422
+            );
+        }
+    
+        // Log the start of the operation
+        Log::info('Creating shipping address', ['payload' => $request->all()]);
+    
+        // Calling Raja Ongkir to find label
         $payloadCity = array(
-            'id'        => $request->city,
-            'province_id' =>null
+            'id' => $request->city,
+            'province_id' => null
         );
         $getCity = $cityService->getCity($payloadCity);
-
+    
+        if (!$getCity['arrayResponse']) {
+            return $this->handleError(
+                ['field' => 'city', 'message' => 'Failed to retrieve city data'],
+                'City service response error',
+                $request->all(),
+                str_replace('/', '.', $request->path()),
+                422
+            );
+        }
+    
         $request->merge([
-            'city'           => $getCity['arrayResponse']['city_id'],
-            'city_label'     => $getCity['arrayResponse']['city_name'],
+            'city' => $getCity['arrayResponse']['city_id'],
+            'city_label' => $getCity['arrayResponse']['city_name'],
             'province_label' => $getCity['arrayResponse']['province'],
-            'province'       => $getCity['arrayResponse']['province_id']
+            'province' => $getCity['arrayResponse']['province_id']
         ]);
-       
-        $insert = $this->shippingAddressInterface->store($request->all(),'show_all');
-        
-        if($insert['queryStatus']) {
-
-            return $this->handleResponse( $insert['queryResponse'],'Insert shipping address product success',$request->all(),str_replace('/','.',$request->path()),201);
-        }
-        else {
-
-            $data  = array([
-                'field' =>'create-shipping address-product',
-                'message'=> 'shipping address product create fail'
+    
+        $insert = $this->shippingAddressInterface->store($request->all(), 'show_all');
+    
+        if ($insert['queryStatus']) {
+            Log::info('Shipping address created successfully', ['response' => $insert['queryResponse']]);
+    
+            return $this->handleResponse(
+                $insert['queryResponse'],
+                'Insert shipping address success',
+                $request->all(),
+                str_replace('/', '.', $request->path()),
+                201
+            );
+        } else {
+            $data = array([
+                'field' => 'create-shipping address-product',
+                'message' => 'Shipping address product creation failed'
             ]);
-
-            return   $this->handleError($data,$insert['queryMessage'],$request->all(),str_replace('/','.',$request->path()),422);
+    
+            // Log the failure
+            Log::error('Failed to create shipping address', ['error' => $insert['queryMessage']]);
+    
+            return $this->handleError(
+                $data,
+                $insert['queryMessage'],
+                $request->all(),
+                str_replace('/', '.', $request->path()),
+                422
+            );
         }
-
     }
 
     public function destroy(ShippingAddressDestroyRequest  $request) {
